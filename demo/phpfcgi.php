@@ -15,7 +15,7 @@ while ($req = $server->Accept()) {
 				print_r($req->SESSION);
 				?>
 </pre>
-<form action="index.php" method="post">
+<form method="post">
 	<input type="text" name="test" value="blah"/>
 	<input type="text" name="another" value="blue"/>
 	<input type="submit"/>
