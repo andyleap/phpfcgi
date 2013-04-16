@@ -11,7 +11,7 @@ class FCGI_Request {
 	private $open = true;
 	public $SERVER = "";
 	public $STDIN = "";
-	public $COOKIES = array();
+	public $COOKIE = array();
 	public $GET = array();
 	public $POST = array();
 	public $SESSION = array();
@@ -76,8 +76,8 @@ class FCGI_Request {
 		if ($this->sessionID !== null) {
 			return $this->sessionID;
 		}
-		if ($this->UseCookies && isset($this->COOKIES[$this->SessionName])) {
-			$this->sessionID = $this->COOKIES[$this->SessionName];
+		if ($this->UseCookies && isset($this->COOKIE[$this->SessionName])) {
+			$this->sessionID = $this->COOKIE[$this->SessionName];
 			return $this->sessionID;
 		}
 		if (!$this->UseOnlyCookies && isset($this->GET[$this->SessionName])) {
@@ -89,7 +89,7 @@ class FCGI_Request {
 	}
 
 	function SID() {
-		if (!$this->UseOnlyCookies && !isset($this->COOKIES[$this->SessionName])) {
+		if (!$this->UseOnlyCookies && !isset($this->COOKIE[$this->SessionName])) {
 			return $this->SessionName . '=' . $this->Session_ID();
 		}
 		return '';

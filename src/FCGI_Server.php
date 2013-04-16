@@ -105,7 +105,7 @@ class FCGI_Server {
 								list($name, $value) = explode('=', trim($cookie), 2);
 								$cookies[$name] = urldecode($value);
 							}
-							$this->requests[$header['requestId']]->COOKIES = $cookies;
+							$this->requests[$header['requestId']]->COOKIE = $cookies;
 						}
 						if (isset($SERVER['QUERY_STRING'])) {
 							parse_str($SERVER['QUERY_STRING'], $this->requests[$header['requestId']]->GET);
