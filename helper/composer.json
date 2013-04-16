@@ -1,0 +1,7 @@
+{
+    "name": "vendan/helper",
+    "description": "Helper to download latest codeless/jugglecode for compilation usage",
+    "require": {
+        "codeless/jugglecode" : ">=1.0.0"
+    }
+}
