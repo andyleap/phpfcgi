@@ -1,3 +1,3 @@
 #!/bin/bash
 
-php phpfcgi.php
+spawn-fcgi -n -s /tmp/phpfcgi.sock -M 0666 -- /usr/bin/php phpfcgi.php
