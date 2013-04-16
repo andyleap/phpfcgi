@@ -22,6 +22,7 @@ class FCGI_Server {
 	private $transferConnection;
 	private $transferConnectionOpen = false;
 	private $requests = array();
+	private $requestParams = array();
 	public $SessionHandler = null;
 	public $SessionSavePath = '';
 	public $SessionName = '';
@@ -94,38 +95,19 @@ class FCGI_Server {
 				case self::FCGI_BEGIN_REQUEST:
 					$data = unpack('nrole/Cflags', $content);
 					$this->requests[$header['requestId']] = new FCGI_Request($header['requestId'], $this, $data['flags']);
+					$this->requestParams[$header['requestId']] = '';
 					break;
 				case self::FCGI_PARAMS:
 					if ($header['contentLength'] == 0) {
-						$SERVER = $this->DecodeNameValuePairs($this->requests[$header['requestId']]->SERVER);
-						if (isset($SERVER['HTTP_COOKIE'])) {
-							$rawcookies = explode(';', $SERVER['HTTP_COOKIE']);
-							$cookies = array();
-							foreach ($rawcookies as $cookie) {
-								list($name, $value) = explode('=', trim($cookie), 2);
-								$cookies[$name] = urldecode($value);
-							}
-							$this->requests[$header['requestId']]->COOKIE = $cookies;
-						}
-						if (isset($SERVER['QUERY_STRING'])) {
-							parse_str($SERVER['QUERY_STRING'], $this->requests[$header['requestId']]->GET);
-						}
-						$this->requests[$header['requestId']]->SERVER = $SERVER;
+						$SERVER = $this->DecodeNameValuePairs($this->requestParams[$header['requestId']]);
+						$this->requests[$header['requestId']]->ProcessParams($SERVER);
 					} else {
-						$this->requests[$header['requestId']]->SERVER .= $content;
+						$this->requestParams[$header['requestId']] .= $content;
 					}
 					break;
 				case self::FCGI_STDIN:
 					if ($header['contentLength'] == 0) {
-						if(isset($this->requests[$header['requestId']]->SERVER['CONTENT_TYPE']))
-						{
-							$content_type = $this->requests[$header['requestId']]->SERVER['CONTENT_TYPE'];
-							switch (strtolower(trim($content_type))) {
-								case 'application/x-www-form-urlencoded':
-									parse_str($this->requests[$header['requestId']]->STDIN, $this->requests[$header['requestId']]->POST);
-									break;
-							}
-						}
+						$this->requests[$header['requestId']]->ProcessSTDIN();
 						if($start_ob)
 						{
 							$this->requests[$header['requestId']]->Start_OB();

@@ -9,14 +9,13 @@ class FCGI_Request {
 	private $flags;
 	private $ob_started = false;
 	private $open = true;
-	public $SERVER = "";
+	public $SERVER = array();
 	public $STDIN = "";
 	public $COOKIE = array();
 	public $GET = array();
 	public $POST = array();
 	public $SESSION = array();
 	private $newCookies = array();
-	
 	private $SessionStarted = false;
 	private $SessionHandler = null;
 	private $SessionSavePath = '';
@@ -46,6 +45,73 @@ class FCGI_Request {
 		}
 	}
 
+	function ProcessParams($Params) {
+		if (isset($Params['HTTP_COOKIE'])) {
+			$this->COOKIE = $this->ParseHeader($Params['HTTP_COOKIE']);
+		}
+		if (isset($Params['QUERY_STRING'])) {
+			parse_str($Params['QUERY_STRING'], $this->GET);
+		}
+		$this->SERVER = $Params;
+	}
+
+	function ProcessSTDIN() {
+		if (isset($this->SERVER['CONTENT_TYPE'])) {
+			$content_type_info = $this->ParseHeader($this->SERVER['CONTENT_TYPE']);
+
+			switch (strtolower(trim($content_type_info[0]))) {
+				case 'application/x-www-form-urlencoded':
+					parse_str($this->STDIN, $this->POST);
+					break;
+				case 'multipart/form-data':
+					$this->ParseMultipart($this->STDIN, $content_type_info['boundary']);
+					break;
+			}
+		}
+	}
+
+	private function ParseHeader($header) {
+		$headerParts = explode(';', $header);
+		$header_info = array();
+		foreach ($headerParts as $headerPart) {
+			$parts = explode('=', trim($headerPart), 2);
+			if (count($parts) > 1) {
+				$header_info[$parts[0]] = trim(urldecode($parts[1]), '"');
+			} else {
+				$header_info[] = $parts[0];
+			}
+		}
+		return $header_info;
+	}
+
+	function ParseMultipart($data, $boundary) {
+		
+		$blocks = preg_split('/\r\n-+' . $boundary . '/', "\r\n" . $data);
+		array_pop($blocks);
+
+		foreach ($blocks as $id => $block) {
+			if (empty($block))
+				continue;
+			
+			list($headerdata, $body) = explode("\r\n\r\n", $block, 2);
+			$headerdatas = explode("\r\n", $headerdata);
+			$headers = array();
+			foreach($headerdatas as $header)
+			{
+				if(trim($header) != '')
+				{
+					list($name, $params) = explode(':', $header, 2);
+					$headers[strtolower($name)] = array_change_key_case($this->ParseHeader($params));
+				}
+			}
+			if(strtolower($headers['content-disposition'][0]) == 'form-data')
+			{
+				$this->POST[$headers['content-disposition']['name']] = $body;
+			}
+		}
+		return array();
+	}
+
 	function Header($name, $value, $replace = true) {
 		if ($replace || !isset($this->headers[$name])) {
 			$this->headers[$name] = array($value);
@@ -55,14 +121,12 @@ class FCGI_Request {
 	}
 
 	function Session_Start() {
-		if(!$this->SessionStarted)
-		{
+		if (!$this->SessionStarted) {
 			$this->SessionHandler->open($this->SessionSavePath, $this->SessionName);
 			$data = $this->SessionHandler->read($this->Session_ID());
 			if ($this->UseCookies) {
 				$expire = 0;
-				if($this->CookieParams['lifetime'] > 0)
-				{
+				if ($this->CookieParams['lifetime'] > 0) {
 					$expire = time() + $this->CookieParams['lifetime'];
 				}
 				$this->SetCookie($this->SessionName, $this->Session_ID(), $expire, $this->CookieParams['path'], $this->CookieParams['domain'], $this->CookieParams['secure'], $this->CookieParams['httponly']);
@@ -94,15 +158,14 @@ class FCGI_Request {
 		}
 		return '';
 	}
-	
+
 	function Session_Destroy() {
 		$this->SessionHandler->destroy($this->Session_ID());
 		$this->SessionStarted = false;
 	}
-	
+
 	function Session_Write_Close() {
-		if($this->SessionStarted)
-		{
+		if ($this->SessionStarted) {
 			$this->SessionHandler->write($this->Session_ID(), SessionUtils::serialize($this->SESSION));
 			$this->SessionStarted = false;
 		}
@@ -191,12 +254,12 @@ class FCGI_Request {
 			$padLen = (8 - ($resLen % 8)) % 8;
 			$response = pack('CCnnCC', 1, FCGI_Server::FCGI_END_REQUEST, $this->requestId, $resLen, $padLen, 0) . $resData . str_repeat('\0', $padLen);
 			$this->server->socket_safe_write($response);
-			if($this->SessionStarted)
-			{
+			if ($this->SessionStarted) {
 				$this->Session_Write_Close();
 			}
 			$this->server->CloseRequest($this->requestId);
 			$this->open = false;
 		}
 	}
+
 }
