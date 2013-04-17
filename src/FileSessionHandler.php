@@ -1,40 +1,50 @@
 <?php
 
-class FileSessionHandler implements SessionHandlerInterface {
-
+class FileSessionHandler implements SessionHandlerInterface
+{
 	private $savePath;
 
-	public function open($savePath, $sessionName) {
+	public function open($savePath, $sessionName)
+	{
 		$this->savePath = $savePath;
-		if (!is_dir($this->savePath)) {
+		if(!is_dir($this->savePath))
+		{
 			mkdir($this->savePath, 0777);
 		}
 		return true;
 	}
 
-	public function close() {
+	public function close()
+	{
 		return true;
 	}
 
-	public function read($id) {
+	public function read($id)
+	{
 		return (string) @file_get_contents("$this->savePath/sess_$id");
 	}
 
-	public function write($id, $data) {
+	public function write($id, $data)
+	{
 		return file_put_contents("$this->savePath/sess_$id", $data) === false ? false : true;
 	}
 
-	public function destroy($id) {
+	public function destroy($id)
+	{
 		$file = "$this->savePath/sess_$id";
-		if (file_exists($file)) {
+		if(file_exists($file))
+		{
 			unlink($file);
 		}
 		return true;
 	}
 
-	public function gc($maxlifetime) {
-		foreach (glob("$this->savePath/sess_*") as $file) {
-			if (filemtime($file) + $maxlifetime < time() && file_exists($file)) {
+	public function gc($maxlifetime)
+	{
+		foreach(glob("$this->savePath/sess_*") as $file)
+		{
+			if(filemtime($file) + $maxlifetime < time() && file_exists($file))
+			{
 				unlink($file);
 			}
 		}

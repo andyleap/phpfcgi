@@ -18,6 +18,7 @@ class FCGI_Server
     private $transferConnection;
     private $transferConnectionOpen = false;
     private $requests = array();
+    private $requestParams = array();
     public $SessionHandler = null;
     public $SessionSavePath = '';
     public $SessionName = '';
@@ -83,37 +84,19 @@ class FCGI_Server
                 case self::FCGI_BEGIN_REQUEST:
                     $data = unpack('nrole/Cflags', $content);
                     $this->requests[$header['requestId']] = new FCGI_Request($header['requestId'], $this, $data['flags']);
+                    $this->requestParams[$header['requestId']] = '';
                     break;
                 case self::FCGI_PARAMS:
                     if ($header['contentLength'] == 0) {
-                        $SERVER = $this->DecodeNameValuePairs($this->requests[$header['requestId']]->SERVER);
-                        if (isset($SERVER['HTTP_COOKIE'])) {
-                            $rawcookies = explode(';', $SERVER['HTTP_COOKIE']);
-                            $cookies = array();
-                            foreach ($rawcookies as $cookie) {
-                                list($name, $value) = explode('=', trim($cookie), 2);
-                                $cookies[$name] = urldecode($value);
-                            }
-                            $this->requests[$header['requestId']]->COOKIE = $cookies;
-                        }
-                        if (isset($SERVER['QUERY_STRING'])) {
-                            parse_str($SERVER['QUERY_STRING'], $this->requests[$header['requestId']]->GET);
-                        }
-                        $this->requests[$header['requestId']]->SERVER = $SERVER;
+                        $SERVER = $this->DecodeNameValuePairs($this->requestParams[$header['requestId']]);
+                        $this->requests[$header['requestId']]->ProcessParams($SERVER);
                     } else {
-                        $this->requests[$header['requestId']]->SERVER .= $content;
+                        $this->requestParams[$header['requestId']] .= $content;
                     }
                     break;
                 case self::FCGI_STDIN:
                     if ($header['contentLength'] == 0) {
-                        if (isset($this->requests[$header['requestId']]->SERVER['CONTENT_TYPE'])) {
-                            $content_type = $this->requests[$header['requestId']]->SERVER['CONTENT_TYPE'];
-                            switch (strtolower(trim($content_type))) {
-                                case 'application/x-www-form-urlencoded':
-                                    parse_str($this->requests[$header['requestId']]->STDIN, $this->requests[$header['requestId']]->POST);
-                                    break;
-                            }
-                        }
+                        $this->requests[$header['requestId']]->ProcessSTDIN();
                         if ($start_ob) {
                             $this->requests[$header['requestId']]->Start_OB();
                         }
@@ -212,7 +195,7 @@ class FCGI_Request
     private $flags;
     private $ob_started = false;
     private $open = true;
-    public $SERVER = '';
+    public $SERVER = array();
     public $STDIN = '';
     public $COOKIE = array();
     public $GET = array();
@@ -244,6 +227,71 @@ class FCGI_Request
         if ($this->SessionAutoStart) {
             $this->Session_Start();
         }
+    }
+    public function ProcessParams($Params)
+    {
+        if (isset($Params['HTTP_COOKIE'])) {
+            $this->COOKIE = $this->ParseHeader($Params['HTTP_COOKIE']);
+        }
+        if (isset($Params['QUERY_STRING'])) {
+            parse_str($Params['QUERY_STRING'], $this->GET);
+        }
+        $this->SERVER = $Params;
+    }
+    public function ProcessSTDIN()
+    {
+        if (isset($this->SERVER['CONTENT_TYPE'])) {
+            $content_type_info = $this->ParseHeader($this->SERVER['CONTENT_TYPE']);
+            switch (strtolower(trim($content_type_info[0]))) {
+                case 'application/x-www-form-urlencoded':
+                    parse_str($this->STDIN, $this->POST);
+                    break;
+                case 'multipart/form-data':
+                    $this->ParseMultipart($this->STDIN, $content_type_info['boundary']);
+                    break;
+            }
+        }
+    }
+    private function ParseHeader($header)
+    {
+        $headerParts = explode(';', $header);
+        $header_info = array();
+        foreach ($headerParts as $headerPart) {
+            $parts = explode('=', trim($headerPart), 2);
+            if (count($parts) > 1) {
+                $header_info[$parts[0]] = trim(urldecode($parts[1]), '"');
+            } else {
+                $header_info[] = $parts[0];
+            }
+        }
+        return $header_info;
+    }
+    public function ParseMultipart($data, $boundary)
+    {
+        $blocks = preg_split('/\\r\\n-+' . $boundary . '/', '
+' . $data);
+        array_pop($blocks);
+        foreach ($blocks as $id => $block) {
+            if (empty($block)) {
+                continue;
+            }
+            list($headerdata, $body) = explode('
+
+', $block, 2);
+            $headerdatas = explode('
+', $headerdata);
+            $headers = array();
+            foreach ($headerdatas as $header) {
+                if (trim($header) != '') {
+                    list($name, $params) = explode(':', $header, 2);
+                    $headers[strtolower($name)] = array_change_key_case($this->ParseHeader($params));
+                }
+            }
+            if (strtolower($headers['content-disposition'][0]) == 'form-data') {
+                $this->POST[$headers['content-disposition']['name']] = $body;
+            }
+        }
+        return array();
     }
     public function Header($name, $value, $replace = true)
     {

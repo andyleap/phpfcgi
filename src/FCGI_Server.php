@@ -1,9 +1,7 @@
 <?php
 
-
-
-class FCGI_Server {
-
+class FCGI_Server
+{
 	const FCGI_BEGIN_REQUEST = 1;
 	const FCGI_ABORT_REQUEST = 2;
 	const FCGI_END_REQUEST = 3;
@@ -31,7 +29,8 @@ class FCGI_Server {
 	public $UseCookies = true;
 	public $UseOnlyCookies = true;
 
-	function __construct() {
+	function __construct()
+	{
 		$this->mainTransferConnection = socket_import_stream(STDIN);
 		socket_set_block($this->mainTransferConnection);
 		$this->transferConnection = socket_accept($this->mainTransferConnection);
@@ -49,33 +48,42 @@ class FCGI_Server {
 			'secure' => ini_get('session.cookie_secure'),
 			'httponly' => ini_get('session.cookie_httponly'),
 		);
-		if ($this->CookieParams['domain'] === '') {
+		if($this->CookieParams['domain'] === '')
+		{
 			$this->CookieParams['domain'] = null;
 		}
-		if ($this->CookieParams['secure'] === '') {
+		if($this->CookieParams['secure'] === '')
+		{
 			$this->CookieParams['secure'] = false;
 		}
-		if ($this->CookieParams['httponly'] === '') {
+		if($this->CookieParams['httponly'] === '')
+		{
 			$this->CookieParams['httponly'] = false;
 		}
 		$this->UseCookies = ini_get('session.use_cookies');
 		$this->UseOnlyCookies = ini_get('session.use_only_cookies');
 	}
 
-	function Accept($close_old = true, $start_ob = true) {
-		if ($close_old) {
-			foreach (array_values($this->requests) as $req) {
+	function Accept($close_old = true, $start_ob = true)
+	{
+		if($close_old)
+		{
+			foreach(array_values($this->requests) as $req)
+			{
 				$req->Close();
 			}
 		}
-		while (true) {
-			if (!$this->transferConnectionOpen) {
+		while(true)
+		{
+			if(!$this->transferConnectionOpen)
+			{
 				$this->transferConnection = socket_accept($this->mainTransferConnection);
 				$this->transferConnectionOpen = true;
 				socket_set_block($this->transferConnection);
 			}
 			$headerData = socket_read($this->transferConnection, 8);
-			while ($headerData === '') {
+			while($headerData === '')
+			{
 				$this->transferConnection = socket_accept($this->mainTransferConnection);
 				$this->transferConnectionOpen = true;
 				socket_set_block($this->transferConnection);
@@ -84,7 +92,8 @@ class FCGI_Server {
 			$header = unpack('Cversion/Ctype/nrequestId/ncontentLength/CpaddingLength/Creserved', $headerData);
 			$content = socket_read($this->transferConnection, $header['contentLength']);
 			$padding = socket_read($this->transferConnection, $header['paddingLength']);
-			switch ($header['type']) {
+			switch($header['type'])
+			{
 				case self::FCGI_GET_VALUES:
 					$resData = $this->EncodeNameValuePairs($this->GetValues($this->DecodeNameValuePairs($content)));
 					$resLen = strlen($resData);
@@ -98,22 +107,28 @@ class FCGI_Server {
 					$this->requestParams[$header['requestId']] = '';
 					break;
 				case self::FCGI_PARAMS:
-					if ($header['contentLength'] == 0) {
+					if($header['contentLength'] == 0)
+					{
 						$SERVER = $this->DecodeNameValuePairs($this->requestParams[$header['requestId']]);
 						$this->requests[$header['requestId']]->ProcessParams($SERVER);
-					} else {
+					}
+					else
+					{
 						$this->requestParams[$header['requestId']] .= $content;
 					}
 					break;
 				case self::FCGI_STDIN:
-					if ($header['contentLength'] == 0) {
+					if($header['contentLength'] == 0)
+					{
 						$this->requests[$header['requestId']]->ProcessSTDIN();
 						if($start_ob)
 						{
 							$this->requests[$header['requestId']]->Start_OB();
 						}
 						return $this->requests[$header['requestId']];
-					} else {
+					}
+					else
+					{
 						$this->requests[$header['requestId']]->STDIN .= $content;
 					}
 					break;
@@ -121,38 +136,47 @@ class FCGI_Server {
 		}
 	}
 
-	public function CloseRequest($id) {
+	public function CloseRequest($id)
+	{
 		unset($this->requests[$id]);
 	}
 
-	private function GetValues($values) {
+	private function GetValues($values)
+	{
 		$newValues = array();
-		if (array_key_exists('FCGI_MAX_CONNS', $values)) {
+		if(array_key_exists('FCGI_MAX_CONNS', $values))
+		{
 			$newValues['FCGI_MAX_CONNS'] = '1';
 		}
-		if (array_key_exists('FCGI_MAX_REQS', $values)) {
+		if(array_key_exists('FCGI_MAX_REQS', $values))
+		{
 			$newValues['FCGI_MAX_REQS'] = '1';
 		}
-		if (array_key_exists('FCGI_MPXS_CONNS', $values)) {
+		if(array_key_exists('FCGI_MPXS_CONNS', $values))
+		{
 			$newValues['FCGI_MPXS_CONNS'] = '0';
 		}
 		echo "Got values\n";
 		return $newValues;
 	}
 
-	private function DecodeNameValuePairs($data) {
+	private function DecodeNameValuePairs($data)
+	{
 		$pairs = array();
 		$pos = 0;
-		while (strlen($data) > $pos) {
+		while(strlen($data) > $pos)
+		{
 			$namelen = unpack('C', substr($data, $pos, 1))[1];
 			$pos += 1;
-			if ($namelen > 127) {
+			if($namelen > 127)
+			{
 				$namelen = intval(unpack('N', substr($data, $pos - 1, 4))[1]) & 2147483647;
 				$pos += 3;
 			}
 			$vallen = unpack('C', substr($data, $pos, 1))[1];
 			$pos += 1;
-			if ($vallen > 127) {
+			if($vallen > 127)
+			{
 				$vallen = intval(unpack('N', substr($data, $pos - 1, 4))[1]) & 2147483647;
 				$pos +=3;
 			}
@@ -165,19 +189,27 @@ class FCGI_Server {
 		return $pairs;
 	}
 
-	private function EncodeNameValuePairs($pairs) {
+	private function EncodeNameValuePairs($pairs)
+	{
 		$data = "";
-		foreach ($pairs as $key => $value) {
+		foreach($pairs as $key => $value)
+		{
 			$namelen = strlen($key);
-			if ($namelen > 127) {
+			if($namelen > 127)
+			{
 				$data .= pack('N', $namelen | -2147483648);
-			} else {
+			}
+			else
+			{
 				$data .= pack('C', $namelen);
 			}
 			$vallen = strlen($value);
-			if ($vallen > 127) {
+			if($vallen > 127)
+			{
 				$data .= pack('N', $vallen | -2147483648);
-			} else {
+			}
+			else
+			{
 				$data .= pack('C', $vallen);
 			}
 			$data .= $key . $value;
@@ -185,12 +217,15 @@ class FCGI_Server {
 		return $data;
 	}
 
-	public function socket_safe_write($data) {
+	public function socket_safe_write($data)
+	{
 		$len = strlen($data);
 		$offset = 0;
-		while ($offset < $len) {
+		while($offset < $len)
+		{
 			$sent = socket_write($this->transferConnection, substr($data, $offset), $len - $offset);
-			if ($sent === false) {
+			if($sent === false)
+			{
 				break;
 			}
 			$offset += $sent;

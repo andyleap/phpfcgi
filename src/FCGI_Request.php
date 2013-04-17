@@ -1,7 +1,7 @@
 <?php
 
-class FCGI_Request {
-
+class FCGI_Request
+{
 	private $requestId;
 	private $headers = array();
 	private $headers_sent = false;
@@ -26,7 +26,8 @@ class FCGI_Request {
 	private $UseOnlyCookies = true;
 	private $sessionID = null;
 
-	function __construct($requestId, $server, $flags) {
+	function __construct($requestId, $server, $flags)
+	{
 		$this->requestId = $requestId;
 		$this->server = $server;
 		$this->flags = $flags;
@@ -40,26 +41,33 @@ class FCGI_Request {
 		$this->UseCookies = $server->UseCookies;
 		$this->UseOnlyCookies = $server->UseOnlyCookies;
 
-		if ($this->SessionAutoStart) {
+		if($this->SessionAutoStart)
+		{
 			$this->Session_Start();
 		}
 	}
 
-	function ProcessParams($Params) {
-		if (isset($Params['HTTP_COOKIE'])) {
+	function ProcessParams($Params)
+	{
+		if(isset($Params['HTTP_COOKIE']))
+		{
 			$this->COOKIE = $this->ParseHeader($Params['HTTP_COOKIE']);
 		}
-		if (isset($Params['QUERY_STRING'])) {
+		if(isset($Params['QUERY_STRING']))
+		{
 			parse_str($Params['QUERY_STRING'], $this->GET);
 		}
 		$this->SERVER = $Params;
 	}
 
-	function ProcessSTDIN() {
-		if (isset($this->SERVER['CONTENT_TYPE'])) {
+	function ProcessSTDIN()
+	{
+		if(isset($this->SERVER['CONTENT_TYPE']))
+		{
 			$content_type_info = $this->ParseHeader($this->SERVER['CONTENT_TYPE']);
 
-			switch (strtolower(trim($content_type_info[0]))) {
+			switch(strtolower(trim($content_type_info[0])))
+			{
 				case 'application/x-www-form-urlencoded':
 					parse_str($this->STDIN, $this->POST);
 					break;
@@ -70,29 +78,36 @@ class FCGI_Request {
 		}
 	}
 
-	private function ParseHeader($header) {
+	private function ParseHeader($header)
+	{
 		$headerParts = explode(';', $header);
 		$header_info = array();
-		foreach ($headerParts as $headerPart) {
+		foreach($headerParts as $headerPart)
+		{
 			$parts = explode('=', trim($headerPart), 2);
-			if (count($parts) > 1) {
+			if(count($parts) > 1)
+			{
 				$header_info[$parts[0]] = trim(urldecode($parts[1]), '"');
-			} else {
+			}
+			else
+			{
 				$header_info[] = $parts[0];
 			}
 		}
 		return $header_info;
 	}
 
-	function ParseMultipart($data, $boundary) {
-		
+	function ParseMultipart($data, $boundary)
+	{
+
 		$blocks = preg_split('/\r\n-+' . $boundary . '/', "\r\n" . $data);
 		array_pop($blocks);
 
-		foreach ($blocks as $id => $block) {
-			if (empty($block))
+		foreach($blocks as $id => $block)
+		{
+			if(empty($block))
 				continue;
-			
+
 			list($headerdata, $body) = explode("\r\n\r\n", $block, 2);
 			$headerdatas = explode("\r\n", $headerdata);
 			$headers = array();
@@ -112,21 +127,29 @@ class FCGI_Request {
 		return array();
 	}
 
-	function Header($name, $value, $replace = true) {
-		if ($replace || !isset($this->headers[$name])) {
+	function Header($name, $value, $replace = true)
+	{
+		if($replace || !isset($this->headers[$name]))
+		{
 			$this->headers[$name] = array($value);
-		} else {
+		}
+		else
+		{
 			$this->headers[$name][] = $value;
 		}
 	}
 
-	function Session_Start() {
-		if (!$this->SessionStarted) {
+	function Session_Start()
+	{
+		if(!$this->SessionStarted)
+		{
 			$this->SessionHandler->open($this->SessionSavePath, $this->SessionName);
 			$data = $this->SessionHandler->read($this->Session_ID());
-			if ($this->UseCookies) {
+			if($this->UseCookies)
+			{
 				$expire = 0;
-				if ($this->CookieParams['lifetime'] > 0) {
+				if($this->CookieParams['lifetime'] > 0)
+				{
 					$expire = time() + $this->CookieParams['lifetime'];
 				}
 				$this->SetCookie($this->SessionName, $this->Session_ID(), $expire, $this->CookieParams['path'], $this->CookieParams['domain'], $this->CookieParams['secure'], $this->CookieParams['httponly']);
@@ -136,15 +159,19 @@ class FCGI_Request {
 		}
 	}
 
-	function Session_ID() {
-		if ($this->sessionID !== null) {
+	function Session_ID()
+	{
+		if($this->sessionID !== null)
+		{
 			return $this->sessionID;
 		}
-		if ($this->UseCookies && isset($this->COOKIE[$this->SessionName])) {
+		if($this->UseCookies && isset($this->COOKIE[$this->SessionName]))
+		{
 			$this->sessionID = $this->COOKIE[$this->SessionName];
 			return $this->sessionID;
 		}
-		if (!$this->UseOnlyCookies && isset($this->GET[$this->SessionName])) {
+		if(!$this->UseOnlyCookies && isset($this->GET[$this->SessionName]))
+		{
 			$this->sessionID = $this->GET[$this->SessionName];
 			return $this->sessionID;
 		}
@@ -152,63 +179,81 @@ class FCGI_Request {
 		return $this->sessionID;
 	}
 
-	function SID() {
-		if (!$this->UseOnlyCookies && !isset($this->COOKIE[$this->SessionName])) {
+	function SID()
+	{
+		if(!$this->UseOnlyCookies && !isset($this->COOKIE[$this->SessionName]))
+		{
 			return $this->SessionName . '=' . $this->Session_ID();
 		}
 		return '';
 	}
 
-	function Session_Destroy() {
+	function Session_Destroy()
+	{
 		$this->SessionHandler->destroy($this->Session_ID());
 		$this->SessionStarted = false;
 	}
 
-	function Session_Write_Close() {
-		if ($this->SessionStarted) {
+	function Session_Write_Close()
+	{
+		if($this->SessionStarted)
+		{
 			$this->SessionHandler->write($this->Session_ID(), SessionUtils::serialize($this->SESSION));
 			$this->SessionStarted = false;
 		}
 	}
 
-	function Header_Remove($name) {
+	function Header_Remove($name)
+	{
 		unset($this->header[$name]);
 	}
 
-	function SetRawCookie($name, $value, $expire = 0, $path = '/', $domain = null, $secure = false, $httponly = false) {
+	function SetRawCookie($name, $value, $expire = 0, $path = '/', $domain = null, $secure = false, $httponly = false)
+	{
 		$cookie = $value;
-		if ($expire != 0) {
+		if($expire != 0)
+		{
 			$cookie .= '; expires=' . gmdate('D, d-M-Y H:i:s \G\M\T', $expire);
 		}
-		if ($domain != null) {
+		if($domain != null)
+		{
 			$cookie .= '; domain=' . $domain;
 		}
 		$cookie .= '; path=' . $path;
-		if ($secure) {
+		if($secure)
+		{
 			$cookie .= '; secure';
 		}
-		if ($httponly) {
+		if($httponly)
+		{
 			$cookie .= '; httponly';
 		}
 		$this->newCookies[$name] = $cookie;
 	}
 
-	function SetCookie($name, $value, $expire = 0, $path = '/', $domain = null, $secure = false, $httponly = false) {
+	function SetCookie($name, $value, $expire = 0, $path = '/', $domain = null, $secure = false, $httponly = false)
+	{
 		$this->SetRawCookie($name, urlencode($value), $expire, $path, $domain, $secure, $httponly);
 	}
 
-	function Write($data) {
-		if ($this->open) {
-			if (!$this->headers_sent) {
+	function Write($data)
+	{
+		if($this->open)
+		{
+			if(!$this->headers_sent)
+			{
 				$headers = '';
 				$sep = '';
-				foreach ($this->headers as $name => $values) {
-					foreach ($values as $value) {
+				foreach($this->headers as $name => $values)
+				{
+					foreach($values as $value)
+					{
 						$headers .= $sep . $name . ': ' . $value;
 						$sep = "\r\n";
 					}
 				}
-				foreach ($this->newCookies as $name => $value) {
+				foreach($this->newCookies as $name => $value)
+				{
 					$headers .= $sep . 'Set-Cookie: ' . $name . '=' . $value;
 					$sep = "\r\n";
 				}
@@ -217,9 +262,11 @@ class FCGI_Request {
 			}
 
 			$pos = 0;
-			while (strlen($data) > $pos) {
+			while(strlen($data) > $pos)
+			{
 				$resLen = strlen($data) - $pos;
-				if ($resLen > 65535) {
+				if($resLen > 65535)
+				{
 					$resLen = 65535;
 				}
 				$padLen = (8 - ($resLen % 8)) % 8;
@@ -230,22 +277,28 @@ class FCGI_Request {
 		}
 	}
 
-	public function Start_OB() {
-		if (!$this->ob_started && $this->open) {
+	public function Start_OB()
+	{
+		if(!$this->ob_started && $this->open)
+		{
 			ob_start(array($this, 'Write'), 4096);
 			$this->ob_started = true;
 		}
 	}
 
-	public function End_OB() {
-		if ($this->ob_started) {
+	public function End_OB()
+	{
+		if($this->ob_started)
+		{
 			ob_end_flush();
 			$this->ob_started = false;
 		}
 	}
 
-	public function Close() {
-		if ($this->open) {
+	public function Close()
+	{
+		if($this->open)
+		{
 			$this->End_OB();
 			$response = pack('CCnnCC', 1, FCGI_Server::FCGI_STDOUT, $this->requestId, 0, 0, 0);
 			$this->server->socket_safe_write($response);
@@ -254,7 +307,8 @@ class FCGI_Request {
 			$padLen = (8 - ($resLen % 8)) % 8;
 			$response = pack('CCnnCC', 1, FCGI_Server::FCGI_END_REQUEST, $this->requestId, $resLen, $padLen, 0) . $resData . str_repeat('\0', $padLen);
 			$this->server->socket_safe_write($response);
-			if ($this->SessionStarted) {
+			if($this->SessionStarted)
+			{
 				$this->Session_Write_Close();
 			}
 			$this->server->CloseRequest($this->requestId);
